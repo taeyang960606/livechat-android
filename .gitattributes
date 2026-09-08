@@ -1,0 +1,7 @@
+# Windows checkouts must not turn the wrapper script into CRLF: the Linux
+# runners that build this repo would fail on the shebang.
+* text=auto
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.jar binary
