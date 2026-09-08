@@ -1,0 +1,3 @@
+# JitPack builds from a tag on this repository. The Android plugin needs 17.
+jdk:
+  - openjdk17
