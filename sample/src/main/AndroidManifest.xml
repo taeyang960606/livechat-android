@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- The sample's default deployment is a server on the developer's own
+         machine over http, and Android blocks cleartext by default from
+         targetSdk 28 on. It belongs here and not in the library: a real
+         deployment is https, and a library has no business relaxing the host
+         app's network policy. -->
     <application
         android:label="LiveChat sample"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
         <activity
             android:name=".MainActivity"
