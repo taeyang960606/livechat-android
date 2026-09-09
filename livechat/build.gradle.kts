@@ -9,9 +9,11 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        // Matches what the widget itself supports, and what comparable chat
-        // SDKs ship: anything older cannot run the widget's JavaScript.
-        minSdk = 21
+        // 23 rather than 21 because the WebView error callback this SDK reports
+        // through ErrorListener only exists from 23: on 21 and 22 a failed page
+        // load would be silent, which is worse than not supporting them. Those
+        // two versions are also long past the share any of this is built for.
+        minSdk = 23
     }
 
     compileOptions {
@@ -45,7 +47,7 @@ publishing {
         register<MavenPublication>("release") {
             groupId = "com.github.taeyang960606"
             artifactId = "livechat-android"
-            version = "0.1.0"
+            version = "0.2.0"
 
             afterEvaluate {
                 from(components["release"])

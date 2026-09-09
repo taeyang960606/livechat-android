@@ -22,5 +22,7 @@ jobs:
 
       # The library and its JVM tests. The sample app builds too, so a change
       # that breaks the public API is caught here rather than by whoever
-      # integrates the SDK next.
-      - run: ./gradlew :livechat:assembleRelease :livechat:testReleaseUnitTest :sample:assembleDebug
+      # integrates the SDK next. Lint is in the same line because it was left
+      # out once already, and a lint error nobody runs is a broken build nobody
+      # sees.
+      - run: ./gradlew :livechat:assembleRelease :livechat:testReleaseUnitTest :livechat:lintRelease :sample:assembleDebug

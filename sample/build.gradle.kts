@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId = "com.wondergoland.livechat.sample"
-        minSdk = 21
+        minSdk = 23
         targetSdk = 34
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.2.0"
     }
 
     compileOptions {
