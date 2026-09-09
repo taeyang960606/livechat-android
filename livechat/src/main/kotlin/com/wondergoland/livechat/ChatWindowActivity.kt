@@ -2,18 +2,21 @@ package com.wondergoland.livechat
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.webkit.WebChromeClient
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 
 /**
  * Hosts the chat as a full screen of its own. The chat page has no close button
  * of its own -- navigation belongs to the app -- so back finishes this screen.
+ *
+ * The chat window itself belongs to the process, not to this activity: this is
+ * only the container it is put into while it is on screen.
  */
 class ChatWindowActivity : AppCompatActivity() {
 
-    private lateinit var chatWindow: ChatWindowView
+    private var chatWindow: ChatWindowView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,31 +29,23 @@ class ChatWindowActivity : AppCompatActivity() {
             return
         }
 
-        chatWindow = ChatWindowView(this)
-        chatWindow.fileChooserRequest = { intent ->
+        val container = FrameLayout(this)
+        setContentView(container)
+
+        chatWindow = ChatWindowBus.attach(container) { intent ->
             runCatching {
                 startActivityForResult(intent, FILE_CHOOSER_REQUEST)
             }.isSuccess
         }
-        setContentView(chatWindow)
-
-        ChatWindowBus.attach(chatWindow)
-        chatWindow.load()
     }
 
     override fun onResume() {
         super.onResume()
-
-        if (this::chatWindow.isInitialized) {
-            chatWindow.onShown(true)
-        }
+        chatWindow?.onShown(true)
     }
 
     override fun onPause() {
-        if (this::chatWindow.isInitialized) {
-            chatWindow.onShown(false)
-        }
-
+        chatWindow?.onShown(false)
         super.onPause()
     }
 
@@ -60,11 +55,7 @@ class ChatWindowActivity : AppCompatActivity() {
             return
         }
 
-        if (!this::chatWindow.isInitialized) {
-            return
-        }
-
-        chatWindow.onFileChooserResult(
+        chatWindow?.onFileChooserResult(
             if (resultCode == Activity.RESULT_OK) {
                 WebChromeClient.FileChooserParams.parseResult(resultCode, data)
             } else {
@@ -73,11 +64,15 @@ class ChatWindowActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * Detached, not destroyed. Messages reach the app only while the WebView is
+     * alive, and an unread badge is for the times the chat is not on screen --
+     * so leaving this screen must not take the window down with it.
+     * `LiveChat.destroy()` is what tears it down.
+     */
     override fun onDestroy() {
-        if (this::chatWindow.isInitialized) {
-            chatWindow.destroyChat()
-        }
-
+        chatWindow?.let(ChatWindowBus::detach)
+        chatWindow = null
         super.onDestroy()
     }
 

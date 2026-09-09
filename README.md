@@ -21,15 +21,17 @@ dependencyResolutionManagement {
 `build.gradle.kts`:
 
 ```kotlin
-implementation("com.github.taeyang960606:livechat-android:0.1.0")
+implementation("com.github.taeyang960606:livechat-android:0.2.0")
 ```
 
-Requires `minSdk` 21 and JDK 17 to build.
+Requires `minSdk` 23 and JDK 17 to build.
 
 ## Use
 
 ```kotlin
-// Once, before showing the chat. baseUrl is where LiveChat is deployed.
+// Once, at app startup. baseUrl is where LiveChat is deployed.
+// Startup rather than just before the chat: sign-out below needs the SDK to
+// have been initialized to have somewhere to record itself.
 LiveChat.initialize("https://chat.example.com", "01JMERCHANT", context)
 
 // Opens the chat as its own screen.
@@ -37,6 +39,16 @@ LiveChat.getInstance().show()
 ```
 
 The chat screen fills the display and has no close button of its own: navigation belongs to the app, and the system back button finishes the screen.
+
+The chat window is created once per process and survives leaving the screen, so a reply that arrives after the visitor navigated away still reaches `newMessageListener`. Leaving the chat costs nothing; `LiveChat.getInstance().destroy()` is what releases it.
+
+### Unread messages before the chat is ever opened
+
+```kotlin
+LiveChat.getInstance().preload()
+```
+
+Starts the chat in the background, from the main thread. **An unread badge needs this**: without it nothing is listening until the first `show()`, so the first reply the app hears about is one that arrives after the visitor has already been in the chat once.
 
 ### Signed-in members
 
@@ -60,6 +72,8 @@ LiveChat.getInstance().signOutCustomer()
 ```
 
 **Call this from the app's own sign-out.** The visitor id lives in the WebView's storage, which the next person to sign in on the device would otherwise inherit along with the previous conversation.
+
+It works with no chat on screen, which is the usual case -- people sign out from a settings screen. The request is stored, so it also survives sign out, app closed, somebody else signs in tomorrow: the visitor is cleared before the next chat shows anything.
 
 ### Callbacks
 
@@ -88,7 +102,7 @@ LiveChat.filePickerNotFoundListener = FilePickerActivityNotFoundListener {
 
 Callbacks arrive on the WebView's JavaScript thread, not the main thread. Post to the UI yourself before touching a view.
 
-Messages arriving while the app is in the background reach `newMessageListener` only while the process is alive. **There is no offline push**: a reply that arrives after the app is killed notifies nobody. That needs FCM, on the server and in the app, and it is not part of this SDK.
+Messages reach `newMessageListener` for as long as the process lives and the chat window has been started -- by `preload()` or by a previous `show()`. **There is no offline push**: a reply that arrives after the app is killed notifies nobody. That needs FCM, on the server and in the app, and it is not part of this SDK.
 
 ## What the app has to provide
 
@@ -104,7 +118,7 @@ Messages arriving while the app is in the background reach `newMessageListener` 
 JitPack builds from a tag on this repository:
 
 ```
-git tag 0.1.0 && git push origin 0.1.0
+git tag 0.2.0 && git push origin 0.2.0
 ```
 
 The version in `livechat/build.gradle.kts` and the tag have to match.

@@ -62,6 +62,20 @@ object LiveChat {
     @JvmStatic
     fun getInstance(): LiveChat = this
 
+    /**
+     * Starts the chat in the background, so messages -- and therefore an unread
+     * badge -- reach [newMessageListener] before the visitor has ever opened
+     * the chat. Call it from the main thread once the app knows it wants the
+     * badge, typically right after [initialize].
+     *
+     * Without it the first message the app hears about is one that arrives
+     * after the first [show], because nothing is listening until then.
+     */
+    fun preload() {
+        requireConfiguration()
+        ChatWindowBus.window()
+    }
+
     /** Opens the chat as its own screen. */
     fun show() {
         val configuration = requireConfiguration()
@@ -92,10 +106,30 @@ object LiveChat {
      * Call this from the app's sign-out. The visitor id lives in the WebView's
      * storage, which the next person to sign in on this device would otherwise
      * inherit along with the conversation.
+     *
+     * It works with no chat anywhere on screen, which is the usual case -- people
+     * sign out from the app's own settings. The request is stored, so it also
+     * survives the honest sequence: sign out, close the app, somebody else signs
+     * in tomorrow.
+     *
+     * Does nothing if [initialize] has not run: sign-out is on the app's
+     * critical path and a library has no business throwing there. Call
+     * [initialize] at app startup so this always has somewhere to write.
      */
     fun signOutCustomer() {
-        configuration?.customer = null
-        ChatWindowBus.reset()
+        val configuration = configuration ?: return
+        configuration.customer = null
+        configuration.hasPendingSignOut = true
+        ChatWindowBus.signOut()
+    }
+
+    /**
+     * Releases the chat window and everything it was listening to. Messages
+     * stop reaching [newMessageListener] until the next [preload] or [show].
+     * Main thread only.
+     */
+    fun destroy() {
+        ChatWindowBus.destroy()
     }
 
     /** Whether [initialize] has run in this process. */
@@ -103,6 +137,12 @@ object LiveChat {
         get() = configuration != null
 
     internal fun configurationOrNull(): LiveChatConfiguration? = configuration
+
+    internal fun hasPendingSignOut(): Boolean = configuration?.hasPendingSignOut == true
+
+    internal fun consumePendingSignOut() {
+        configuration?.hasPendingSignOut = false
+    }
 
     internal fun requireConfiguration(): LiveChatConfiguration =
         configuration ?: error("LiveChat.initialize() has to be called before using the chat.")
@@ -120,6 +160,27 @@ internal class LiveChatConfiguration(
     val applicationContext: Context,
 ) {
     var customer: LiveChatCustomer? = null
+
+    /**
+     * A sign-out waiting to be carried out against the widget. Stored rather
+     * than held in memory: the chat is usually nowhere near the screen when a
+     * user signs out, and the process is often gone by the time the next
+     * person opens the chat.
+     */
+    var hasPendingSignOut: Boolean
+        get() = preferences.getBoolean(KEY_PENDING_SIGN_OUT, false)
+        set(value) {
+            preferences.edit().putBoolean(KEY_PENDING_SIGN_OUT, value).apply()
+        }
+
+    private val preferences by lazy {
+        applicationContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    }
+
+    private companion object {
+        const val PREFERENCES_NAME = "com.wondergoland.livechat"
+        const val KEY_PENDING_SIGN_OUT = "pending_sign_out"
+    }
 }
 
 internal data class LiveChatCustomer(

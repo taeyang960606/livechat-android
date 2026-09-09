@@ -3,6 +3,7 @@ package com.wondergoland.livechat
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.util.AttributeSet
 import android.webkit.ConsoleMessage
@@ -17,8 +18,8 @@ import android.widget.FrameLayout
 import org.json.JSONObject
 
 /**
- * The chat, as a view. The activity is a thin host around it so the same view
- * can later sit in a fragment or a tab without touching the bridge below.
+ * The chat, as a view. One of these exists per process and it is handed from
+ * screen to screen -- see [ChatWindowBus] for why it outlives its host.
  */
 @SuppressLint("SetJavaScriptEnabled")
 class ChatWindowView @JvmOverloads constructor(
@@ -30,6 +31,17 @@ class ChatWindowView @JvmOverloads constructor(
 
     private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
     private var isChatShown: Boolean = false
+
+    /**
+     * The widget has mounted and its controls are bound. Before that point a
+     * `reset()` reaches the SDK object but not the stored visitor id, and an
+     * `identify()` has nothing holding it -- so both wait for this.
+     *
+     * Written from the WebView's JavaScript thread, read from the main thread
+     * whenever the app identifies a member or signs one out.
+     */
+    @Volatile
+    private var isWidgetReady: Boolean = false
 
     private val webView = WebView(context).apply {
         settings.javaScriptEnabled = true
@@ -59,6 +71,12 @@ class ChatWindowView @JvmOverloads constructor(
     }
 
     internal fun applyCustomer(customer: LiveChatCustomer) {
+        if (!isWidgetReady) {
+            // Applied from the ready event instead, which reads the same
+            // stored customer back.
+            return
+        }
+
         val identity = JSONObject().apply {
             put("externalId", customer.externalId)
             customer.name?.let { put("name", it) }
@@ -72,12 +90,23 @@ class ChatWindowView @JvmOverloads constructor(
         }
     }
 
-    internal fun resetVisitor() {
+    /**
+     * The visitor id and the stored conversation live in this WebView's
+     * storage, and the widget's own `reset()` is what clears them. A sign-out
+     * that lands before the widget mounted is remembered by [LiveChat] and
+     * replayed from the ready event -- clearing storage from here instead
+     * would empty Web Storage for every WebView in the host app.
+     */
+    internal fun signOutVisitor() {
+        if (!isWidgetReady) {
+            return
+        }
+
         evaluate(call("reset"))
+        LiveChat.consumePendingSignOut()
     }
 
     fun destroyChat() {
-        ChatWindowBus.detach(this)
         webView.removeJavascriptInterface(BRIDGE_NAME)
         webView.destroy()
     }
@@ -85,6 +114,22 @@ class ChatWindowView @JvmOverloads constructor(
     internal fun onFileChooserResult(uris: Array<Uri>?) {
         pendingFileCallback?.onReceiveValue(uris)
         pendingFileCallback = null
+    }
+
+    private fun onWidgetReady() {
+        isWidgetReady = true
+
+        // A sign-out that happened while no chat was on screen -- the usual
+        // case, since people sign out from the app's own settings -- is
+        // replayed here, before the visitor sees anything.
+        if (LiveChat.hasPendingSignOut()) {
+            evaluate(call("reset"))
+            LiveChat.consumePendingSignOut()
+        }
+
+        // After the reset, never before: reset() drops the member identity, so
+        // identifying first would leave the new member anonymous.
+        LiveChat.configurationOrNull()?.customer?.let(::applyCustomer)
     }
 
     private fun evaluate(script: String) {
@@ -113,6 +158,8 @@ class ChatWindowView @JvmOverloads constructor(
             val event = runCatching { JSONObject(payload) }.getOrNull() ?: return
 
             when (event.optString("type")) {
+                "ready" -> onWidgetReady()
+
                 "message" -> {
                     val message = event.optJSONObject("message") ?: return
                     LiveChat.newMessageListener?.onNewMessage(
@@ -140,9 +187,16 @@ class ChatWindowView @JvmOverloads constructor(
     }
 
     private inner class ChatWebViewClient : WebViewClient() {
+        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+            // A reload starts over: the bridge and the widget are both gone
+            // until the new page announces itself.
+            isWidgetReady = false
+        }
+
         override fun onPageFinished(view: WebView?, url: String?) {
+            // The customer is applied from the ready event rather than here:
+            // a pending sign-out has to reset the visitor first.
             view?.evaluateJavascript(BOOTSTRAP_SCRIPT, null)
-            LiveChat.configurationOrNull()?.customer?.let(::applyCustomer)
         }
 
         override fun shouldOverrideUrlLoading(
@@ -244,6 +298,12 @@ class ChatWindowView @JvmOverloads constructor(
                     sdk.q = sdk.q || [];
                     sdk.q.push([method, args || []]);
                 };
+
+                // The widget replays 'ready' for a late subscriber, so this
+                // cannot miss a widget that mounted before the bridge landed.
+                window.__livechatCall('on', ['ready', function () {
+                    LiveChatAndroid.postEvent(JSON.stringify({ type: 'ready' }));
+                }]);
 
                 window.__livechatCall('on', ['message', function (payload) {
                     LiveChatAndroid.postEvent(JSON.stringify({

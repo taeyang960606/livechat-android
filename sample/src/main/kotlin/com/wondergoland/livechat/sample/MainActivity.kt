@@ -18,6 +18,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         LiveChat.initialize(BASE_URL, MERCHANT_PUBLIC_ID, this)
+        // Starts the chat in the background. Without it the counter below stays
+        // at zero until the chat has been opened once, because nothing is
+        // listening -- which is the wrong half of the unread problem.
+        LiveChat.getInstance().preload()
 
         val unread = TextView(this).apply { text = "Unread: 0" }
         var unreadCount = 0
