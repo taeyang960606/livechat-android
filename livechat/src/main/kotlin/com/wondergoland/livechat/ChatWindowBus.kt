@@ -1,9 +1,11 @@
 package com.wondergoland.livechat
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.content.MutableContextWrapper
 import android.view.ViewGroup
+import java.lang.ref.WeakReference
 
 /**
  * The one chat window in this process.
@@ -24,6 +26,10 @@ internal object ChatWindowBus {
     // the process, on purpose, and `LiveChat.destroy()` releases it.
     @SuppressLint("StaticFieldLeak")
     private var window: ChatWindowView? = null
+
+    // Weak, so a host that goes away without detaching -- a process the system
+    // tore down mid-transition -- cannot be held here by this object.
+    private var host: WeakReference<Activity>? = null
 
     /**
      * The window, created and loading if this is the first call. Main thread
@@ -58,6 +64,7 @@ internal object ChatWindowBus {
         // before handing it to this one.
         (view.parent as? ViewGroup)?.removeView(view)
         (view.context as? MutableContextWrapper)?.baseContext = container.context
+        host = (container.context as? Activity)?.let(::WeakReference)
         view.fileChooserRequest = fileChooserRequest
         container.addView(
             view,
@@ -77,6 +84,7 @@ internal object ChatWindowBus {
 
         view.fileChooserRequest = null
         view.onShown(false)
+        host = null
         (view.parent as? ViewGroup)?.removeView(view)
         // Back to the application, or the wrapper holds the finished activity
         // alive for as long as the window lives.
@@ -90,6 +98,11 @@ internal object ChatWindowBus {
 
     fun signOut() {
         window?.signOutVisitor()
+    }
+
+    fun finishHost() {
+        host?.get()?.finish()
+        host = null
     }
 
     fun destroy() {

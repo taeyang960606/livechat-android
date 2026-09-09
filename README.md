@@ -38,7 +38,7 @@ LiveChat.initialize("https://chat.example.com", "01JMERCHANT", context)
 LiveChat.getInstance().show()
 ```
 
-The chat screen fills the display and has no close button of its own: navigation belongs to the app, and the system back button finishes the screen.
+The chat screen fills the display and has no close button of its own: navigation belongs to the app, and the system back button finishes the screen. `LiveChat.getInstance().hide()` closes it from the app's own control.
 
 The chat window is created once per process and survives leaving the screen, so a reply that arrives after the visitor navigated away still reaches `newMessageListener`. Leaving the chat costs nothing; `LiveChat.getInstance().destroy()` is what releases it.
 

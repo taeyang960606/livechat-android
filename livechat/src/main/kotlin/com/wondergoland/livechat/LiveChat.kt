@@ -86,6 +86,17 @@ object LiveChat {
     }
 
     /**
+     * Closes the chat screen, for an app that drives navigation from its own
+     * controls. Does nothing when the chat is not the screen on top.
+     *
+     * The window itself stays alive, so messages keep reaching
+     * [newMessageListener] afterwards. [destroy] is what releases it.
+     */
+    fun hide() {
+        ChatWindowBus.finishHost()
+    }
+
+    /**
      * Ties the conversation to a signed-in member. `externalId` is required:
      * this platform treats it as the sole proof of identity, so a name and an
      * email on their own cannot identify anybody -- they are stored as

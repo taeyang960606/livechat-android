@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
-import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -242,6 +241,9 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
         }
     }
 
+    // Console messages are deliberately not swallowed: the widget's own
+    // errors show up there, and this is the only window into a chat that
+    // misbehaves on somebody else's device.
     private inner class ChatWebChromeClient : WebChromeClient() {
         override fun onShowFileChooser(
             webView: WebView?,
@@ -266,8 +268,6 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
 
             return launched
         }
-
-        override fun onConsoleMessage(message: ConsoleMessage?): Boolean = true
     }
 
     private companion object {

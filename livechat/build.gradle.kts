@@ -14,6 +14,7 @@ android {
         // load would be silent, which is worse than not supporting them. Those
         // two versions are also long past the share any of this is built for.
         minSdk = 23
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     compileOptions {
