@@ -13,7 +13,7 @@ class ChatUrlTest {
     fun `builds the chat url from the deployment and the merchant`() {
         assertEquals(
             "https://chat.example.com/widget/app/01JMERCHANT",
-            chatUrlFor("https://chat.example.com", "01JMERCHANT"),
+            chatUrlOf("https://chat.example.com", "01JMERCHANT"),
         )
     }
 
@@ -21,10 +21,7 @@ class ChatUrlTest {
     fun `tolerates a trailing slash and padded input`() {
         assertEquals(
             "https://chat.example.com/widget/app/01JMERCHANT",
-            chatUrlFor("https://chat.example.com/", " 01JMERCHANT "),
+            chatUrlOf("https://chat.example.com/", " 01JMERCHANT "),
         )
     }
-
-    private fun chatUrlFor(baseUrl: String, merchantPublicId: String): String =
-        baseUrl.trimEnd('/') + "/widget/app/" + merchantPublicId.trim()
 }

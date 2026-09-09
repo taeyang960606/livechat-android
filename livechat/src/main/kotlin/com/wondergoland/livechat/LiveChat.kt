@@ -150,9 +150,17 @@ object LiveChat {
     internal fun chatUrl(): String {
         val configuration = requireConfiguration()
 
-        return configuration.baseUrl + "/widget/app/" + configuration.merchantPublicId
+        return chatUrlOf(configuration.baseUrl, configuration.merchantPublicId)
     }
 }
+
+/**
+ * The URL is the whole contract between this SDK and the platform. Kept as a
+ * function of its two inputs so it can be tested as itself, rather than
+ * through a configuration that needs a Context.
+ */
+internal fun chatUrlOf(baseUrl: String, merchantPublicId: String): String =
+    baseUrl.trimEnd('/') + "/widget/app/" + merchantPublicId.trim()
 
 internal class LiveChatConfiguration(
     val baseUrl: String,

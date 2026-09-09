@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.AttributeSet
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -20,12 +19,15 @@ import org.json.JSONObject
 /**
  * The chat, as a view. One of these exists per process and it is handed from
  * screen to screen -- see [ChatWindowBus] for why it outlives its host.
+ *
+ * Not part of the public API. Putting the chat inside a screen of the app's own
+ * means the host has to forward file-chooser results back to it, so exposing
+ * the view without that plumbing would offer an embedding path where the
+ * attachment button silently does nothing. `LiveChat.show()` is the supported
+ * entry point; a real embedding API can be added when somebody needs one.
  */
 @SuppressLint("SetJavaScriptEnabled")
-class ChatWindowView @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-) : FrameLayout(context, attrs) {
+internal class ChatWindowView(context: Context) : FrameLayout(context) {
 
     internal var fileChooserRequest: ((intent: Intent) -> Boolean)? = null
 
