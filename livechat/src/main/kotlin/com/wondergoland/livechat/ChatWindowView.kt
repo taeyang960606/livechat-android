@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.SystemClock
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -44,6 +45,16 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
     @Volatile
     private var isWidgetReady: Boolean = false
 
+    /**
+     * When the page was last loaded, on the monotonic clock. The widget reads
+     * its configuration once per load -- whether operators are online, the
+     * business hours, the merchant's settings -- and this window now lives as
+     * long as the process does, so without a way to notice the age of it the
+     * chat goes on answering with what was true whenever it happened to load.
+     */
+    @Volatile
+    private var loadedAtMillis: Long = 0L
+
     private val webView = WebView(context).apply {
         settings.javaScriptEnabled = true
         // Without this the visitor id cannot be stored and every visit starts
@@ -64,7 +75,23 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
     }
 
     fun load() {
+        loadedAtMillis = SystemClock.elapsedRealtime()
         webView.loadUrl(LiveChat.chatUrl())
+    }
+
+    /**
+     * Reloads when the page has been sitting here longer than [maxAgeMillis].
+     * Called as the chat goes on screen, because that is the moment the visitor
+     * starts acting on what it says.
+     */
+    internal fun reloadIfStale(maxAgeMillis: Long) {
+        if (SystemClock.elapsedRealtime() - loadedAtMillis < maxAgeMillis) {
+            return
+        }
+
+        loadedAtMillis = SystemClock.elapsedRealtime()
+        isWidgetReady = false
+        webView.reload()
     }
 
     fun onShown(shown: Boolean) {

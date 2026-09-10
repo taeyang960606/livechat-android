@@ -73,6 +73,7 @@ internal object ChatWindowBus {
                 ViewGroup.LayoutParams.MATCH_PARENT,
             ),
         )
+        view.reloadIfStale(STALE_AFTER_MILLIS)
 
         return view
     }
@@ -104,6 +105,18 @@ internal object ChatWindowBus {
         host?.get()?.finish()
         host = null
     }
+
+    /**
+     * How long a loaded page may sit before the chat is shown again.
+     *
+     * The window outliving the screen is what makes an unread badge possible,
+     * and it is also what lets the page go stale: a visitor reopening the chat
+     * an hour later would be told the team is offline because the team was
+     * offline an hour ago. A minute is short enough that nobody is looking at
+     * yesterday's answer, and long enough that flipping between the chat and
+     * the app's own screens does not reload anything.
+     */
+    private const val STALE_AFTER_MILLIS = 60_000L
 
     fun destroy() {
         window?.let { view ->
