@@ -20,6 +20,7 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import org.json.JSONObject
 
@@ -49,6 +50,15 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
      * here to reload from.
      */
     private var loadErrorView: View? = null
+
+    /**
+     * Covers the WebView while the page is on its way. A chat page that cannot
+     * be reached takes the network's full timeout to say so -- around two
+     * minutes on a connection that is dropped rather than refused -- and until
+     * this was here the visitor spent that staring at a blank white screen
+     * with no sign anything was happening.
+     */
+    private var loadingView: View? = null
 
     /**
      * The widget has mounted and its controls are bound. Before that point a
@@ -92,12 +102,14 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
 
     fun load() {
         loadedAtMillis = SystemClock.elapsedRealtime()
+        showLoading()
         webView.loadUrl(LiveChat.chatUrl())
     }
 
     private fun reload() {
         loadedAtMillis = SystemClock.elapsedRealtime()
         isWidgetReady = false
+        showLoading()
         webView.reload()
     }
 
@@ -164,7 +176,41 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
         pendingFileCallback = null
     }
 
+    private fun showLoading() {
+        if (loadingView != null) {
+            return
+        }
+
+        val view = buildLoadingView()
+        loadingView = view
+        addView(view, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    }
+
+    private fun hideLoading() {
+        loadingView?.let(::removeView)
+        loadingView = null
+    }
+
+    private fun buildLoadingView(): View =
+        FrameLayout(context).apply {
+            // Opaque and clickable for the same reasons as the error view: it
+            // hides a half-painted page, and swallows taps aimed at it.
+            setBackgroundColor(0xFFFFFFFF.toInt())
+            isClickable = true
+            addView(
+                ProgressBar(context),
+                LayoutParams(
+                    LayoutParams.WRAP_CONTENT,
+                    LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER,
+                ),
+            )
+        }
+
     private fun showLoadError() {
+        // Whatever it was waiting for is not coming.
+        hideLoading()
+
         if (loadErrorView != null) {
             return
         }
@@ -224,6 +270,10 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
 
     private fun onWidgetReady() {
         isWidgetReady = true
+        // The page is not enough: the bundle still has to fetch the merchant's
+        // configuration and mount. This is the first moment there is something
+        // worth showing.
+        hideLoading()
 
         // A sign-out that happened while no chat was on screen -- the usual
         // case, since people sign out from the app's own settings -- is
@@ -285,9 +335,14 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
                     )
                 }
 
-                "error" -> LiveChat.errorListener?.onError(
-                    ChatError(ChatError.Kind.WIDGET, event.optString("description")),
-                )
+                "error" -> {
+                    // The widget mounted far enough to draw its own failure
+                    // message, so stop covering it.
+                    post { hideLoading() }
+                    LiveChat.errorListener?.onError(
+                        ChatError(ChatError.Kind.WIDGET, event.optString("description")),
+                    )
+                }
             }
         }
     }
