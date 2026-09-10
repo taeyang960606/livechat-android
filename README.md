@@ -102,6 +102,20 @@ LiveChat.filePickerNotFoundListener = FilePickerActivityNotFoundListener {
 
 Callbacks arrive on the WebView's JavaScript thread, not the main thread. Post to the UI yourself before touching a view.
 
+### When the chat cannot load
+
+The SDK covers the WebView with a short message and a **Retry** button. Without it the visitor gets Chromium's own error page, which names the deployment host and the merchant's public id, reads as a broken app rather than a network problem, and offers no way back -- there is no address bar in here to reload from.
+
+`errorListener` still fires (`PAGE_LOAD`), so an app that would rather show its own screen can. Override the wording by declaring the same string names in your app:
+
+```xml
+<string name="livechat_load_error_title">Chat is unavailable</string>
+<string name="livechat_load_error_message">Check your connection and try again.</string>
+<string name="livechat_load_error_retry">Retry</string>
+```
+
+They are in English because this screen has to say something before the merchant's own language has loaded.
+
 Messages reach `newMessageListener` for as long as the process lives and the chat window has been started -- by `preload()` or by a previous `show()`. **There is no offline push**: a reply that arrives after the app is killed notifies nobody. That needs FCM, on the server and in the app, and it is not part of this SDK.
 
 ## What the app has to provide

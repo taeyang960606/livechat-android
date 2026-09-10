@@ -6,14 +6,21 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.SystemClock
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.webkit.WebResourceResponse
 import android.webkit.WebViewClient
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import org.json.JSONObject
 
 /**
@@ -33,6 +40,15 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
 
     private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
     private var isChatShown: Boolean = false
+
+    /**
+     * Covers the WebView when the page could not be loaded. Without it the
+     * visitor gets Chromium's own error page, which names the deployment host
+     * and the merchant's public id, reads as a broken app rather than a
+     * network problem, and offers no way back -- there is no address bar in
+     * here to reload from.
+     */
+    private var loadErrorView: View? = null
 
     /**
      * The widget has mounted and its controls are bound. Before that point a
@@ -79,6 +95,12 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
         webView.loadUrl(LiveChat.chatUrl())
     }
 
+    private fun reload() {
+        loadedAtMillis = SystemClock.elapsedRealtime()
+        isWidgetReady = false
+        webView.reload()
+    }
+
     /**
      * Reloads when the page has been sitting here longer than [maxAgeMillis].
      * Called as the chat goes on screen, because that is the moment the visitor
@@ -89,9 +111,7 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
             return
         }
 
-        loadedAtMillis = SystemClock.elapsedRealtime()
-        isWidgetReady = false
-        webView.reload()
+        reload()
     }
 
     fun onShown(shown: Boolean) {
@@ -143,6 +163,64 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
         pendingFileCallback?.onReceiveValue(uris)
         pendingFileCallback = null
     }
+
+    private fun showLoadError() {
+        if (loadErrorView != null) {
+            return
+        }
+
+        val view = buildLoadErrorView()
+        loadErrorView = view
+        addView(view, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    }
+
+    private fun hideLoadError() {
+        loadErrorView?.let(::removeView)
+        loadErrorView = null
+    }
+
+    private fun buildLoadErrorView(): View {
+        val padding = dip(24)
+
+        val title = TextView(context).apply {
+            text = context.getString(R.string.livechat_load_error_title)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setTextColor(0xFF111827.toInt())
+            gravity = Gravity.CENTER
+        }
+
+        val message = TextView(context).apply {
+            text = context.getString(R.string.livechat_load_error_message)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setTextColor(0xFF6B7280.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, dip(8), 0, dip(20))
+        }
+
+        val retry = Button(context).apply {
+            text = context.getString(R.string.livechat_load_error_retry)
+            setOnClickListener {
+                hideLoadError()
+                reload()
+            }
+        }
+
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            // Opaque, so Chromium's error page underneath does not show through.
+            setBackgroundColor(0xFFFFFFFF.toInt())
+            setPadding(padding, padding, padding, padding)
+            // The overlay swallows taps meant for the page it is covering.
+            isClickable = true
+            addView(title)
+            addView(message)
+            addView(retry)
+        }
+    }
+
+    private fun dip(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
 
     private fun onWidgetReady() {
         isWidgetReady = true
@@ -219,6 +297,7 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
             // A reload starts over: the bridge and the widget are both gone
             // until the new page announces itself.
             isWidgetReady = false
+            hideLoadError()
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
@@ -252,10 +331,34 @@ internal class ChatWindowView(context: Context) : FrameLayout(context) {
                 return
             }
 
+            showLoadError()
             LiveChat.errorListener?.onError(
                 ChatError(
                     ChatError.Kind.PAGE_LOAD,
                     error?.description?.toString() ?: "The chat page failed to load.",
+                ),
+            )
+        }
+
+        /**
+         * A page that answers with 4xx or 5xx still renders: the visitor would
+         * be looking at whatever the server put in the body, which for this
+         * platform is a JSON error object. Same treatment as a dead network.
+         */
+        override fun onReceivedHttpError(
+            view: WebView?,
+            request: WebResourceRequest?,
+            errorResponse: WebResourceResponse?,
+        ) {
+            if (request?.isForMainFrame != true) {
+                return
+            }
+
+            showLoadError()
+            LiveChat.errorListener?.onError(
+                ChatError(
+                    ChatError.Kind.PAGE_LOAD,
+                    "The chat page answered with HTTP ${errorResponse?.statusCode ?: 0}.",
                 ),
             )
         }

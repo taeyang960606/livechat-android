@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Shown when the chat page cannot be loaded. Override these in the host app by
+  declaring the same names: the chat itself speaks the merchant's language, but
+  this screen has to say something before any of that has loaded.
+-->
+<resources>
+    <string name="livechat_load_error_title">Chat is unavailable</string>
+    <string name="livechat_load_error_message">Check your connection and try again.</string>
+    <string name="livechat_load_error_retry">Retry</string>
+</resources>
