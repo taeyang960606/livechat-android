@@ -48,9 +48,9 @@ dependencies {
 publishing {
     publications {
         register<MavenPublication>("release") {
-            groupId = "com.github.edgetechmy"
+            groupId = "com.github.taeyang960606"
             artifactId = "livechat-android"
-            version = "0.2.2"
+            version = "0.2.3"
 
             afterEvaluate {
                 from(components["release"])
