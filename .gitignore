@@ -6,3 +6,6 @@ local.properties
 .DS_Store
 .gradle/
 .kotlin/
+
+# Local JDK pinned for Gradle (machine-specific)
+.jdks/

@@ -42,6 +42,33 @@ The chat screen fills the display and has no close button of its own: navigation
 
 The chat window is created once per process and survives leaving the screen, so a reply that arrives after the visitor navigated away still reaches `newMessageListener`. Leaving the chat costs nothing; `LiveChat.getInstance().destroy()` is what releases it.
 
+### Embed as a fragment
+
+For the chat on a screen of the app's own -- a tab, a pane -- rather than the
+full-screen `show()`:
+
+```kotlin
+supportFragmentManager.beginTransaction()
+    .replace(R.id.chat_container, LiveChatFragment())
+    .commit()
+```
+
+or in a layout:
+
+```xml
+<androidx.fragment.app.FragmentContainerView
+    android:id="@+id/chat_container"
+    android:name="com.wondergoland.livechat.LiveChatFragment"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />
+```
+
+`LiveChat.initialize(...)` must have run first. It is the same conversation as
+`show()` -- both share one chat window -- so messages and the unread badge work
+across either. A fragment lives inside the host's layout, so unlike the
+full-screen screen it does not inset itself for the system bars; that is the
+host's to do.
+
 ### Unread messages before the chat is ever opened
 
 ```kotlin

@@ -40,6 +40,8 @@ android {
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
+    // Fragment is part of the public API (LiveChatFragment), so expose it.
+    api("androidx.fragment:fragment:1.8.5")
     testImplementation("junit:junit:4.13.2")
 }
 
@@ -48,7 +50,7 @@ publishing {
         register<MavenPublication>("release") {
             groupId = "com.github.taeyang960606"
             artifactId = "livechat-android"
-            version = "0.2.1"
+            version = "0.2.2"
 
             afterEvaluate {
                 from(components["release"])

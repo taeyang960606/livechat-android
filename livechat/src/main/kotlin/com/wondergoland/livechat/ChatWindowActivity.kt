@@ -6,6 +6,9 @@ import android.os.Bundle
 import android.webkit.WebChromeClient
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 
 /**
  * Hosts the chat as a full screen of its own. The chat page has no close button
@@ -30,7 +33,24 @@ class ChatWindowActivity : AppCompatActivity() {
         }
 
         val container = FrameLayout(this)
+        container.setBackgroundColor(0xFFFFFFFF.toInt())
         setContentView(container)
+
+        // The app may run edge-to-edge (enforced from Android 15 / targetSdk
+        // 35+), which lets this screen draw under the status and navigation
+        // bars. The chat page has no way to inset itself, so pad the container
+        // by the system bars instead -- otherwise the conversation sits under
+        // the clock and the gesture handle.
+        WindowCompat.getInsetsController(window, container)
+            .isAppearanceLightStatusBars = true
+        ViewCompat.setOnApplyWindowInsetsListener(container) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or
+                    WindowInsetsCompat.Type.displayCutout(),
+            )
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
 
         chatWindow = ChatWindowBus.attach(container) { intent ->
             runCatching {
