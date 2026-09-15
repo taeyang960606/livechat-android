@@ -21,7 +21,7 @@ dependencyResolutionManagement {
 `build.gradle.kts`:
 
 ```kotlin
-implementation("com.github.taeyang960606:livechat-android:0.2.1")
+implementation("com.github.edgetechmy:livechat-android:0.2.1")
 ```
 
 Requires `minSdk` 23 and JDK 17 to build.
