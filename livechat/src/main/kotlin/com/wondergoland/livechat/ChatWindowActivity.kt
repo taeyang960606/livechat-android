@@ -46,7 +46,8 @@ class ChatWindowActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(container) { view, insets ->
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or
-                    WindowInsetsCompat.Type.displayCutout(),
+                    WindowInsetsCompat.Type.displayCutout() or
+                    WindowInsetsCompat.Type.ime(),
             )
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             WindowInsetsCompat.CONSUMED

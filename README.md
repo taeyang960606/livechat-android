@@ -21,7 +21,7 @@ dependencyResolutionManagement {
 `build.gradle.kts`:
 
 ```kotlin
-implementation("com.github.taeyang960606:livechat-android:0.2.3")
+implementation("com.github.taeyang960606:livechat-android:0.2.4")
 ```
 
 Requires `minSdk` 23 and JDK 17 to build.
@@ -159,7 +159,7 @@ Messages reach `newMessageListener` for as long as the process lives and the cha
 JitPack builds from a tag on this repository:
 
 ```
-git tag 0.2.3 && git push origin 0.2.3
+git tag 0.2.4 && git push origin 0.2.4
 ```
 
 The version in `livechat/build.gradle.kts` and the tag have to match.
